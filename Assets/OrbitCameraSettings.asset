@@ -21,8 +21,8 @@ MonoBehaviour:
   invertVertical: 1
   minPitch: -15
   maxPitch: 65
-  zoomSpeed: 8
-  manualZoomSpeed: 5
+  zoomSpeed: 100
+  manualZoomSpeed: 80
   minDistance: 12
   maxDistance: 102
   rotationSmoothTime: 0.08
