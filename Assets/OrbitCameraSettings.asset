@@ -15,7 +15,7 @@ MonoBehaviour:
   initialYaw: 0
   initialPitch: 25
   initialDistance: 5
-  rotationSpeed: 180
+  rotationSpeed: 120
   manualRotationSpeed: 90
   invertHorizontal: 0
   invertVertical: 1
@@ -23,8 +23,8 @@ MonoBehaviour:
   maxPitch: 65
   zoomSpeed: 8
   manualZoomSpeed: 5
-  minDistance: 3
-  maxDistance: 12
+  minDistance: 12
+  maxDistance: 102
   rotationSmoothTime: 0.08
   zoomSmoothTime: 0.08
   targetOffset: {x: 0, y: 0, z: 0}
