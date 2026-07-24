@@ -1,11 +1,21 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace TestCarsGame.Camera
 {
     [DisallowMultipleComponent]
     public sealed class OrbitCameraController : MonoBehaviour
     {
+        private enum GestureState
+        {
+            None,
+            OneFingerOrbit,
+            TwoFingerPinch
+        }
+
         [SerializeField] private Transform target;
         [SerializeField] private OrbitCameraSettings settings;
 
@@ -18,6 +28,17 @@ namespace TestCarsGame.Camera
         private float yawVelocity;
         private float pitchVelocity;
         private float distanceVelocity;
+
+        private readonly HashSet<int> ignoredTouchIds = new HashSet<int>();
+        private GestureState gestureState = GestureState.None;
+        private int orbitTouchId = -1;
+        private Vector2 orbitTouchLastPosition;
+        private bool orbitTouchInitialized;
+        private bool skipSingleTouchFrame;
+        private int pinchTouchIdA = -1;
+        private int pinchTouchIdB = -1;
+        private float pinchDistance;
+        private bool pinchDistanceInitialized;
 
         public Transform Target
         {
@@ -46,6 +67,7 @@ namespace TestCarsGame.Camera
             }
 
             ReadMouse();
+            ReadTouch();
             SmoothState();
             ApplyCameraTransform();
         }
@@ -124,6 +146,217 @@ namespace TestCarsGame.Camera
             {
                 Zoom(-scrollSteps * Settings.zoomSpeed * 0.1f);
             }
+        }
+
+        private void ReadTouch()
+        {
+            if (!Settings.enableTouchInput)
+            {
+                ClearTouchState();
+                return;
+            }
+
+            Touchscreen touchscreen = Touchscreen.current;
+            if (touchscreen == null)
+            {
+                ClearTouchState();
+                return;
+            }
+
+            int activeTouchCount = 0;
+            TouchControl firstTouch = null;
+            TouchControl secondTouch = null;
+            bool hasIgnoredTouch = false;
+
+            for (int i = 0; i < touchscreen.touches.Count; i++)
+            {
+                TouchControl touch = touchscreen.touches[i];
+                if (touch == null || !touch.press.isPressed)
+                {
+                    continue;
+                }
+
+                if (ShouldIgnoreTouch(touch))
+                {
+                    hasIgnoredTouch = true;
+                    continue;
+                }
+
+                activeTouchCount++;
+                if (firstTouch == null)
+                {
+                    firstTouch = touch;
+                }
+                else if (secondTouch == null)
+                {
+                    secondTouch = touch;
+                }
+            }
+
+            if (activeTouchCount == 0)
+            {
+                if (hasIgnoredTouch)
+                {
+                    return;
+                }
+
+                ClearTouchState();
+                return;
+            }
+
+            if (activeTouchCount == 1)
+            {
+                UpdateOneFingerOrbit(firstTouch);
+                return;
+            }
+
+            UpdateTwoFingerPinch(firstTouch, secondTouch);
+        }
+
+        private bool ShouldIgnoreTouch(TouchControl touch)
+        {
+            if (!Settings.ignoreTouchesOverUI)
+            {
+                return false;
+            }
+
+            int touchId = GetTouchId(touch);
+            if (touchId < 0)
+            {
+                return false;
+            }
+
+            if (ignoredTouchIds.Contains(touchId))
+            {
+                return true;
+            }
+
+            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(touchId);
+            if (touch.press.wasPressedThisFrame && overUi)
+            {
+                ignoredTouchIds.Add(touchId);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void UpdateOneFingerOrbit(TouchControl touch)
+        {
+            if (touch == null)
+            {
+                return;
+            }
+
+            if (gestureState == GestureState.TwoFingerPinch)
+            {
+                gestureState = GestureState.None;
+                skipSingleTouchFrame = true;
+                orbitTouchId = -1;
+                orbitTouchInitialized = false;
+            }
+
+            int touchId = GetTouchId(touch);
+            if (skipSingleTouchFrame)
+            {
+                skipSingleTouchFrame = false;
+                gestureState = GestureState.OneFingerOrbit;
+                orbitTouchId = touchId;
+                orbitTouchLastPosition = touch.position.ReadValue();
+                orbitTouchInitialized = true;
+                return;
+            }
+
+            if (gestureState != GestureState.OneFingerOrbit || !orbitTouchInitialized || orbitTouchId != touchId)
+            {
+                gestureState = GestureState.OneFingerOrbit;
+                orbitTouchId = touchId;
+                orbitTouchLastPosition = touch.position.ReadValue();
+                orbitTouchInitialized = true;
+                return;
+            }
+
+            Vector2 currentPosition = touch.position.ReadValue();
+            Vector2 delta = currentPosition - orbitTouchLastPosition;
+            orbitTouchLastPosition = currentPosition;
+
+            if (delta.sqrMagnitude > 0.0001f)
+            {
+                float horizontal = Settings.invertHorizontal ? -delta.x : delta.x;
+                float vertical = Settings.invertVertical ? -delta.y : delta.y;
+                Rotate(new Vector2(horizontal, vertical) * Settings.touchRotationSpeed);
+            }
+        }
+
+        private void UpdateTwoFingerPinch(TouchControl firstTouch, TouchControl secondTouch)
+        {
+            if (firstTouch == null || secondTouch == null)
+            {
+                return;
+            }
+
+            int firstTouchId = GetTouchId(firstTouch);
+            int secondTouchId = GetTouchId(secondTouch);
+
+            if (gestureState != GestureState.TwoFingerPinch || firstTouchId != pinchTouchIdA || secondTouchId != pinchTouchIdB)
+            {
+                gestureState = GestureState.TwoFingerPinch;
+                pinchTouchIdA = firstTouchId;
+                pinchTouchIdB = secondTouchId;
+                pinchDistance = GetTouchDistance(firstTouch, secondTouch);
+                pinchDistanceInitialized = true;
+                return;
+            }
+
+            if (!pinchDistanceInitialized)
+            {
+                pinchDistance = GetTouchDistance(firstTouch, secondTouch);
+                pinchDistanceInitialized = true;
+                return;
+            }
+
+            float currentDistance = GetTouchDistance(firstTouch, secondTouch);
+            float distanceDelta = currentDistance - pinchDistance;
+            pinchDistance = currentDistance;
+
+            if (Mathf.Abs(distanceDelta) > Mathf.Epsilon)
+            {
+                Zoom(distanceDelta * Settings.pinchZoomSpeed);
+            }
+        }
+
+        private static float GetTouchDistance(TouchControl firstTouch, TouchControl secondTouch)
+        {
+            if (firstTouch == null || secondTouch == null)
+            {
+                return 0f;
+            }
+
+            return Vector2.Distance(firstTouch.position.ReadValue(), secondTouch.position.ReadValue());
+        }
+
+        private static int GetTouchId(TouchControl touch)
+        {
+            if (touch == null)
+            {
+                return -1;
+            }
+
+            return touch.touchId.ReadValue();
+        }
+
+        private void ClearTouchState()
+        {
+            gestureState = GestureState.None;
+            orbitTouchId = -1;
+            orbitTouchLastPosition = Vector2.zero;
+            orbitTouchInitialized = false;
+            skipSingleTouchFrame = false;
+            pinchTouchIdA = -1;
+            pinchTouchIdB = -1;
+            pinchDistance = 0f;
+            pinchDistanceInitialized = false;
+            ignoredTouchIds.Clear();
         }
 
         private void SmoothState()
