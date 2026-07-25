@@ -23,8 +23,12 @@ MonoBehaviour:
   maxPitch: 65
   zoomSpeed: 100
   manualZoomSpeed: 80
-  minDistance: 12
-  maxDistance: 102
+  minDistance: 2
+  maxDistance: 21.4
+  enableTouchInput: 1
+  touchRotationSpeed: 0.35
+  pinchZoomSpeed: 0.01
+  ignoreTouchesOverUI: 1
   rotationSmoothTime: 0.08
   zoomSmoothTime: 0.08
   targetOffset: {x: 0, y: 0, z: 0}
