@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TestCarsGame.Camera.OrbitCameraSettings
   initialYaw: 0
   initialPitch: 25
-  initialDistance: 8
+  initialDistance: 12
   rotationSpeed: 120
   manualRotationSpeed: 90
   invertHorizontal: 0
@@ -23,8 +23,8 @@ MonoBehaviour:
   maxPitch: 65
   zoomSpeed: 100
   manualZoomSpeed: 80
-  minDistance: 2
-  maxDistance: 3
+  minDistance: 3.5
+  maxDistance: 5
   enableTouchInput: 1
   touchRotationSpeed: 0.35
   pinchZoomSpeed: 0.01
