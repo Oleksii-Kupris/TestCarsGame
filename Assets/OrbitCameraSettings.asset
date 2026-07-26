@@ -23,8 +23,8 @@ MonoBehaviour:
   maxPitch: 65
   zoomSpeed: 100
   manualZoomSpeed: 80
-  minDistance: 5
-  maxDistance: 7
+  minDistance: 7
+  maxDistance: 9
   enableTouchInput: 1
   touchRotationSpeed: 0.35
   pinchZoomSpeed: 0.01
